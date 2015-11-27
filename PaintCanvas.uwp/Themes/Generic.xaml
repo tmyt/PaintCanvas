@@ -1,0 +1,18 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    xmlns:controls="using:Painting.Ink.Controls">
+
+    <Style TargetType="controls:PaintCanvas">
+        <Setter Property="StrokeColor" Value="White" />
+        <Setter Property="StrokeThickness" Value="10.0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:PaintCanvas">
+                    <canvas:CanvasControl x:Name="PART_canvas"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>
