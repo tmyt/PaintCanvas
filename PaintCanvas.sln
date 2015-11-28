@@ -7,6 +7,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaintCanvas.win81", "PaintC
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaintCanvas.uwp", "PaintCanvas.uwp\PaintCanvas.uwp.csproj", "{53320135-C163-4752-9214-2AF8000526E4}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{C582D977-6B51-4054-A3D8-030993DC6FCE}"
+	ProjectSection(SolutionItems) = preProject
+		Tools\nuget.exe = Tools\nuget.exe
+		Tools\PaintCanvas.nuspec = Tools\PaintCanvas.nuspec
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

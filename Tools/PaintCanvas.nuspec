@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+	<metadata>
+		<version>0.9.0</version>
+		<authors>tmyt</authors>
+		<owners>tmyt</owners>
+		<licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
+		<projectUrl>http://github.com/tmyt/PaintCanvas</projectUrl>
+		<id>PaintCanvas</id>
+		<title>PaintCanvas</title>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>Painting control with Win2D</description>
+		<language>en-US</language>
+		<tags>xaml uap uwp ink</tags>
+	</metadata>
+	<files>
+		<file src="..\PaintCanvas.uwp\Properties\PaintCanvas.rd.xml" target="lib\uap10.0\PaintCanvas\Properties\PaintCanvas.rd.xml" />
+
+		<file src="..\PaintCanvas.uwp\bin\x86\Release\Themes\Generic.xbf" target="lib\uap10-x86\native\PaintCanvas\Themes\Generic.xbf" />
+		<file src="..\PaintCanvas.uwp\bin\x86\Release\PaintCanvas.xr.xml" target="lib\uap10-x86\native\PaintCanvas\PaintCanvas.xr.xml" />
+		<file src="..\PaintCanvas.uwp\bin\x86\Release\PaintCanvas.pri" target="lib\uap10-x86\native\PaintCanvas.pri" />
+		<file src="..\PaintCanvas.uwp\bin\x86\Release\PaintCanvas.dll" target="lib\uap10-x86\native\PaintCanvas.dll" />
+
+		<file src="..\PaintCanvas.uwp\bin\x64\Release\Themes\Generic.xbf" target="lib\uap10-x64\native\PaintCanvas\Themes\Generic.xbf" />
+		<file src="..\PaintCanvas.uwp\bin\x64\Release\PaintCanvas.xr.xml" target="lib\uap10-x64\native\PaintCanvas\PaintCanvas.xr.xml" />
+		<file src="..\PaintCanvas.uwp\bin\x64\Release\PaintCanvas.pri" target="lib\uap10-x64\native\PaintCanvas.pri" />
+		<file src="..\PaintCanvas.uwp\bin\x64\Release\PaintCanvas.dll" target="lib\uap10-x64\native\PaintCanvas.dll" />
+
+		<file src="..\PaintCanvas.uwp\bin\arm\Release\Themes\Generic.xbf" target="lib\uap10-arm\native\PaintCanvas\Themes\Generic.xbf" />
+		<file src="..\PaintCanvas.uwp\bin\arm\Release\PaintCanvas.xr.xml" target="lib\uap10-arm\native\PaintCanvas\PaintCanvas.xr.xml" />
+		<file src="..\PaintCanvas.uwp\bin\arm\Release\PaintCanvas.pri" target="lib\uap10-arm\native\PaintCanvas.pri" />
+		<file src="..\PaintCanvas.uwp\bin\arm\Release\PaintCanvas.dll" target="lib\uap10-arm\native\PaintCanvas.dll" />
+
+		<file src="..\PaintCanvas.win81\bin\x86\Release\Themes\Generic.xbf" target="lib\win81\native\PaintCanvas\Themes\Generic.xbf" />
+		<file src="..\PaintCanvas.win81\bin\x86\Release\PaintCanvas.dll" target="lib\win81\native\PaintCanvas.dll" />
+
+		<file src="..\PaintCanvas.win81\bin\x86\Release\Themes\Generic.xbf" target="bin\Windows\x86\native\PaintCanvas\Themes\Generic.xbf" />
+		<file src="..\PaintCanvas.win81\bin\x86\Release\PaintCanvas.dll" target="bin\Windows\x86\native\PaintCanvas.dll" />
+
+		<file src="..\PaintCanvas.win81\bin\x64\Release\Themes\Generic.xbf" target="bin\Windows\x64\native\PaintCanvas\Themes\Generic.xbf" />
+		<file src="..\PaintCanvas.win81\bin\x64\Release\PaintCanvas.dll" target="bin\Windows\x64\native\PaintCanvas.dll" />
+
+		<file src="..\PaintCanvas.win81\bin\arm\Release\Themes\Generic.xbf" target="bin\Windows\arm\native\PaintCanvas\Themes\Generic.xbf" />
+		<file src="..\PaintCanvas.win81\bin\arm\Release\PaintCanvas.dll" target="bin\Windows\arm\native\PaintCanvas.dll" />
+	</files>
+</package>

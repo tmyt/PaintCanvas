@@ -19,6 +19,8 @@ using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using System.Diagnostics;
 using Windows.Devices.Input;
+using Microsoft.Graphics.Canvas.Brushes;
+using Microsoft.Graphics.Canvas.Effects;
 
 namespace Painting.Ink.Controls
 {
@@ -31,10 +33,13 @@ namespace Painting.Ink.Controls
         };
 
         private readonly ObservableCollection<InkLayer> _layers;
+        private readonly Stack<KeyValuePair<InkLayer, CanvasRenderTarget>> _undoBuffer;
+        private readonly Stack<KeyValuePair<InkLayer, CanvasRenderTarget>> _redoBuffer;
         private readonly Dictionary<uint, Point> _inputs;
         private readonly Dictionary<uint, double> _previousPressures;
- 
+
         private CanvasControl _canvas;
+        private CanvasBitmap _background;
 
         public ReadOnlyObservableCollection<InkLayer> Layers
             => new ReadOnlyObservableCollection<InkLayer>(_layers);
@@ -80,6 +85,8 @@ namespace Painting.Ink.Controls
         {
             DefaultStyleKey = typeof(PaintCanvas);
             _layers = new ObservableCollection<InkLayer>();
+            _undoBuffer = new Stack<KeyValuePair<InkLayer, CanvasRenderTarget>>();
+            _redoBuffer = new Stack<KeyValuePair<InkLayer, CanvasRenderTarget>>();
             _inputs = new Dictionary<uint, Point>();
             _previousPressures = new Dictionary<uint, double>();
             // handle unload
@@ -105,10 +112,12 @@ namespace Painting.Ink.Controls
             _canvas = null;
         }
 
-        private void CanvasCreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
+        private async void CanvasCreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
         {
             // create default layer
             AddLayer();
+            _background = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:///PaintCanvas/Assets/canvas.png"));
+            _canvas.Invalidate();
         }
 
         private void CanvasSizeChanged(object sender, SizeChangedEventArgs sizeChangedEventArgs)
@@ -130,6 +139,13 @@ namespace Painting.Ink.Controls
         {
             var ds = args.DrawingSession;
             ds.Clear();
+            if (_background != null)
+            {
+                var tile = new TileEffect();
+                tile.Source = _background;
+                tile.SourceRectangle = new Rect(0, 0, 400, 400);
+                ds.DrawImage(tile);
+            }
             foreach (var layer in _layers)
             {
                 ds.DrawImage(layer.Image);
@@ -142,6 +158,19 @@ namespace Painting.Ink.Controls
             _inputs[pt.PointerId] = pt.Position;
             _previousPressures[pt.PointerId] = pt.ComputePressure();
             _canvas.CapturePointer(e.Pointer);
+            // save undo buffer
+            var activeLayer = ActiveLayer;
+            var undo = activeLayer.Image.Clone();
+            using (var ds = undo.CreateDrawingSession())
+            {
+                ds.DrawImage(activeLayer.Image);
+            }
+            _undoBuffer.Push(new KeyValuePair<InkLayer, CanvasRenderTarget>(activeLayer, undo));
+            while (_redoBuffer.Count > 0)
+            {
+                var buffer = _redoBuffer.Pop();
+                buffer.Value.Dispose();
+            }
         }
 
         private void CanvasPointerMoved(object sender, PointerRoutedEventArgs e)
@@ -201,7 +230,7 @@ namespace Painting.Ink.Controls
                 Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, _canvas.RenderSize),
                 Name = name
             };
-            using(var ds = layer.Image.CreateDrawingSession())
+            using (var ds = layer.Image.CreateDrawingSession())
             {
                 ds.Clear();
             }
@@ -216,6 +245,64 @@ namespace Painting.Ink.Controls
             _layers.Remove(layer);
             layer.Image.Dispose();
             ActiveLayer = n < _layers.Count && n >= 0 ? _layers[n] : null;
+            _canvas.Invalidate();
+        }
+
+        public void Undo()
+        {
+            if (_undoBuffer.Count == 0) return;
+            while (_undoBuffer.Count > 0)
+            {
+                var buffer = _undoBuffer.Pop();
+                if (!_layers.Contains(buffer.Key))
+                {
+                    buffer.Value.Dispose();
+                    continue;
+                }
+                // build redo image
+                var redo = buffer.Value.Clone();
+                using (var ds = redo.CreateDrawingSession())
+                {
+                    ds.DrawImage(buffer.Key.Image);
+                }
+                _redoBuffer.Push(new KeyValuePair<InkLayer, CanvasRenderTarget>(buffer.Key, redo));
+                using (var ds = buffer.Key.Image.CreateDrawingSession())
+                {
+                    ds.Clear();
+                    ds.DrawImage(buffer.Value);
+                }
+                buffer.Value.Dispose();
+                break;
+            }
+            _canvas.Invalidate();
+        }
+
+        public void Redo()
+        {
+            if (_redoBuffer.Count == 0) return;
+            while (_redoBuffer.Count > 0)
+            {
+                var buffer = _redoBuffer.Pop();
+                if (!_layers.Contains(buffer.Key))
+                {
+                    buffer.Value.Dispose();
+                    continue;
+                }
+                // build redo image
+                var undo = buffer.Value.Clone();
+                using (var ds = undo.CreateDrawingSession())
+                {
+                    ds.DrawImage(buffer.Key.Image);
+                }
+                _undoBuffer.Push(new KeyValuePair<InkLayer, CanvasRenderTarget>(buffer.Key, undo));
+                using (var ds = buffer.Key.Image.CreateDrawingSession())
+                {
+                    ds.Clear();
+                    ds.DrawImage(buffer.Value);
+                }
+                buffer.Value.Dispose();
+                break;
+            }
             _canvas.Invalidate();
         }
 
@@ -351,7 +438,7 @@ namespace Painting.Ink.Controls
               y = (N * a.Y + M & b.Y) / (N + M);
             */
             var points = new List<Point>();
-            for(var i = 0; i < segments; ++i)
+            for (var i = 0; i < segments; ++i)
             {
                 var m = i + 1;
                 var n = segments - m;
