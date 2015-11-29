@@ -462,7 +462,7 @@ namespace Painting.Ink.Controls
                 case PointerDeviceType.Pen:
                     return pt.Properties.Pressure;
                 case PointerDeviceType.Touch:
-                    return pt.Properties.ContactRect.Width * pt.Properties.ContactRect.Height / 32768.0f;
+                    return Math.Min(1.0f, pt.Properties.ContactRect.Width * pt.Properties.ContactRect.Height / 32768.0f);
             }
             return 0.5;
         }
