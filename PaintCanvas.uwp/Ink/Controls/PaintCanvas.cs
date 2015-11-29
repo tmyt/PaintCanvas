@@ -196,8 +196,10 @@ namespace Painting.Ink.Controls
                 var prevPt = _inputs[pt.PointerId];
                 for (var i = 0; i < segments.Length; ++i)
                 {
-                    var width = (float)StrokeThickness * (pressure + step * i);
-                    activeLayer.DrawLine(prevPt.ToVector2(), segments[i].ToVector2(), StrokeColor, (float)width, StrokeStyle);
+                    var p = (pressure + step*i);
+                    var width = (float)StrokeThickness * p;
+                    var opacity = p < 0.5 ? p*2 : 1.0f;
+                    activeLayer.DrawLine(prevPt.ToVector2(), segments[i].ToVector2(), StrokeColor, (float)width, StrokeStyle, (float)opacity);
                     prevPt = segments[i];
                 }
             }
@@ -341,11 +343,11 @@ namespace Painting.Ink.Controls
         };
 
         public static void DrawLine(this CanvasRenderTarget target, Vector2 from, Vector2 to, Color color,
-            float strokeWidth, CanvasStrokeStyle strokeStyle)
+            float strokeWidth, CanvasStrokeStyle strokeStyle, float opacity)
         {
             using (var ds = target.CreateDrawingSession())
             {
-                ds.DrawLine(from, to, color, strokeWidth, strokeStyle);
+                ds.DrawLine(from, to, new Color() {A=(byte)(255 * opacity), B=color.B, G=color.G, R=color.R}, strokeWidth, strokeStyle);
             }
         }
 
