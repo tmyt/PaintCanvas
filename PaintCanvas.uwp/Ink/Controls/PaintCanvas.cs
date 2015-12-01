@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Numerics;
 using System.Threading.Tasks;
 using Windows.Foundation;
@@ -34,6 +35,7 @@ namespace Painting.Ink.Controls
         private readonly Dictionary<uint, Point> _inputs;
         private readonly Dictionary<uint, double> _previousPressures;
 
+        private ScrollViewer _scrollViewer;
         private CanvasVirtualControl _canvas;
         private CanvasBitmap _background;
 
@@ -78,21 +80,45 @@ namespace Painting.Ink.Controls
         }
 
         public static readonly DependencyProperty CanvasWidthProperty = DependencyProperty.Register(
-            "CanvasWidth", typeof (double), typeof (PaintCanvas), new PropertyMetadata(default(double)));
+            "CanvasWidth", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double)));
 
         public double CanvasWidth
         {
-            get { return (double) GetValue(CanvasWidthProperty); }
+            get { return (double)GetValue(CanvasWidthProperty); }
             set { SetValue(CanvasWidthProperty, value); }
         }
 
         public static readonly DependencyProperty CanvasHeightProperty = DependencyProperty.Register(
-            "CanvasHeight", typeof (double), typeof (PaintCanvas), new PropertyMetadata(default(double)));
+            "CanvasHeight", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double)));
 
         public double CanvasHeight
         {
-            get { return (double) GetValue(CanvasHeightProperty); }
+            get { return (double)GetValue(CanvasHeightProperty); }
             set { SetValue(CanvasHeightProperty, value); }
+        }
+
+        public static readonly DependencyProperty CanScrollableProperty = DependencyProperty.Register(
+            "CanScrollable", typeof(bool), typeof(PaintCanvas), new PropertyMetadata(default(bool), CanScrollableChanged));
+
+        public bool CanScrollable
+        {
+            get { return (bool)GetValue(CanScrollableProperty); }
+            set { SetValue(CanScrollableProperty, value); }
+        }
+
+        private static void CanScrollableChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((PaintCanvas)d).CanScrollableChanged(e);
+        }
+
+        private void CanScrollableChanged(DependencyPropertyChangedEventArgs e)
+        {
+            if (_scrollViewer == null) return;
+            _scrollViewer.HorizontalScrollBarVisibility = _scrollViewer.VerticalScrollBarVisibility =
+                CanScrollable ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
+            _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
+                CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
+            _canvas.ManipulationMode = CanScrollable ? ManipulationModes.System : ManipulationModes.None;
         }
 
         public PaintCanvas()
@@ -110,6 +136,7 @@ namespace Painting.Ink.Controls
         protected override void OnApplyTemplate()
         {
             _canvas = (CanvasVirtualControl)GetTemplateChild("PART_canvas");
+            _canvas.ManipulationMode = CanScrollable ? ManipulationModes.System : ManipulationModes.None;
             _canvas.CreateResources += CanvasCreateResources;
             _canvas.SizeChanged += CanvasSizeChanged;
             _canvas.RegionsInvalidated += _canvas_RegionsInvalidated;// ReadyToDraw Draw += CanvasDraw;
@@ -118,6 +145,17 @@ namespace Painting.Ink.Controls
             _canvas.PointerReleased += CanvasPointerReleased;
             _canvas.PointerCanceled += CanvasPointerReleased;
             _canvas.PointerCaptureLost += CanvasPointerReleased;
+            //
+            _scrollViewer = (ScrollViewer)GetTemplateChild("PART_ScrollViewer");
+            _scrollViewer.HorizontalScrollBarVisibility = _scrollViewer.VerticalScrollBarVisibility =
+                CanScrollable ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
+            _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
+                CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
+        }
+
+        private void _scrollViewer_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            Debug.WriteLine("hoge");
         }
 
         private void _canvas_RegionsInvalidated(CanvasVirtualControl sender, CanvasRegionsInvalidatedEventArgs args)
@@ -222,9 +260,9 @@ namespace Painting.Ink.Controls
                 var prevPt = _inputs[pt.PointerId];
                 for (var i = 0; i < segments.Length; ++i)
                 {
-                    var p = (pressure + step*i);
+                    var p = (pressure + step * i);
                     var width = (float)StrokeThickness * p;
-                    var opacity = p < 0.5 ? p*2 : 1.0f;
+                    var opacity = p < 0.5 ? p * 2 : 1.0f;
                     activeLayer.DrawLine(prevPt.ToVector2(), segments[i].ToVector2(), StrokeColor, (float)width, StrokeStyle, (float)opacity);
                     prevPt = segments[i];
                 }
@@ -355,6 +393,23 @@ namespace Painting.Ink.Controls
             canvas.Dispose();
             return true;
         }
+
+        public async Task<bool> ImportPicture(IRandomAccessStreamWithContentType stream)
+        {
+            var layer = new InkLayer
+            {
+                Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, _canvas.RenderSize),
+                Name = "Imported"
+            };
+            using (var bitmap = await CanvasBitmap.LoadAsync(_canvas, stream))
+            using (var ds = layer.Image.CreateDrawingSession())
+            {
+                ds.Clear();
+                ds.DrawImage(bitmap);
+            }
+            _layers.Insert(0, layer);
+            return true;
+        }
     }
 
     internal static class CanvasDrawingSessionExtension
@@ -378,7 +433,7 @@ namespace Painting.Ink.Controls
         {
             using (var ds = target.CreateDrawingSession())
             {
-                ds.DrawLine(from, to, new Color() {A=(byte)(255 * opacity), B=color.B, G=color.G, R=color.R}, strokeWidth, strokeStyle);
+                ds.DrawLine(from, to, new Color() { A = (byte)(255 * opacity), B = color.B, G = color.G, R = color.R }, strokeWidth, strokeStyle);
             }
         }
 
