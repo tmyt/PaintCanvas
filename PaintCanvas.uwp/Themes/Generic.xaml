@@ -10,7 +10,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="controls:PaintCanvas">
-                    <canvas:CanvasControl x:Name="PART_canvas"/>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
+                                  x:Name="PART_ScrollViewer">
+                        <canvas:CanvasVirtualControl x:Name="PART_canvas" Width="{TemplateBinding CanvasWidth}" Height="{TemplateBinding CanvasHeight}"/>
+                    </ScrollViewer>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

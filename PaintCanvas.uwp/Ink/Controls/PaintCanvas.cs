@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Numerics;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
@@ -12,14 +11,11 @@ using Windows.UI.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media.Imaging;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
-using System.Diagnostics;
 using Windows.Devices.Input;
-using Microsoft.Graphics.Canvas.Brushes;
 using Microsoft.Graphics.Canvas.Effects;
 
 namespace Painting.Ink.Controls
@@ -38,7 +34,7 @@ namespace Painting.Ink.Controls
         private readonly Dictionary<uint, Point> _inputs;
         private readonly Dictionary<uint, double> _previousPressures;
 
-        private CanvasControl _canvas;
+        private CanvasVirtualControl _canvas;
         private CanvasBitmap _background;
 
         public ReadOnlyObservableCollection<InkLayer> Layers
@@ -81,6 +77,24 @@ namespace Painting.Ink.Controls
             set { SetValue(ActiveLayerProperty, value); }
         }
 
+        public static readonly DependencyProperty CanvasWidthProperty = DependencyProperty.Register(
+            "CanvasWidth", typeof (double), typeof (PaintCanvas), new PropertyMetadata(default(double)));
+
+        public double CanvasWidth
+        {
+            get { return (double) GetValue(CanvasWidthProperty); }
+            set { SetValue(CanvasWidthProperty, value); }
+        }
+
+        public static readonly DependencyProperty CanvasHeightProperty = DependencyProperty.Register(
+            "CanvasHeight", typeof (double), typeof (PaintCanvas), new PropertyMetadata(default(double)));
+
+        public double CanvasHeight
+        {
+            get { return (double) GetValue(CanvasHeightProperty); }
+            set { SetValue(CanvasHeightProperty, value); }
+        }
+
         public PaintCanvas()
         {
             DefaultStyleKey = typeof(PaintCanvas);
@@ -95,15 +109,23 @@ namespace Painting.Ink.Controls
 
         protected override void OnApplyTemplate()
         {
-            _canvas = (CanvasControl)GetTemplateChild("PART_canvas");
+            _canvas = (CanvasVirtualControl)GetTemplateChild("PART_canvas");
             _canvas.CreateResources += CanvasCreateResources;
             _canvas.SizeChanged += CanvasSizeChanged;
-            _canvas.Draw += CanvasDraw;
+            _canvas.RegionsInvalidated += _canvas_RegionsInvalidated;// ReadyToDraw Draw += CanvasDraw;
             _canvas.PointerPressed += CanvasPointerPressed;
             _canvas.PointerMoved += CanvasPointerMoved;
             _canvas.PointerReleased += CanvasPointerReleased;
             _canvas.PointerCanceled += CanvasPointerReleased;
             _canvas.PointerCaptureLost += CanvasPointerReleased;
+        }
+
+        private void _canvas_RegionsInvalidated(CanvasVirtualControl sender, CanvasRegionsInvalidatedEventArgs args)
+        {
+            using (var ds = sender.CreateDrawingSession(args.VisibleRegion))
+            {
+                DrawFrame(ds);
+            }
         }
 
         private void ThisUnloaded(object sender, RoutedEventArgs e)
@@ -112,7 +134,7 @@ namespace Painting.Ink.Controls
             _canvas = null;
         }
 
-        private async void CanvasCreateResources(CanvasControl sender, CanvasCreateResourcesEventArgs args)
+        private async void CanvasCreateResources(CanvasVirtualControl sender, CanvasCreateResourcesEventArgs args)
         {
             // create default layer
             AddLayer();
@@ -137,7 +159,11 @@ namespace Painting.Ink.Controls
 
         private void CanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
         {
-            var ds = args.DrawingSession;
+            DrawFrame(args.DrawingSession);
+        }
+
+        private void DrawFrame(CanvasDrawingSession ds)
+        {
             ds.Clear();
             if (_background != null)
             {
@@ -213,6 +239,7 @@ namespace Painting.Ink.Controls
             if (!_inputs.ContainsKey(e.Pointer.PointerId)) return;
             _inputs.Remove(e.Pointer.PointerId);
             _previousPressures.Remove(e.Pointer.PointerId);
+            _canvas.ReleasePointerCapture(e.Pointer);
         }
 
         private bool IsPenModeEraser(PointerPointProperties prop)
@@ -315,13 +342,17 @@ namespace Painting.Ink.Controls
 
         public async Task<bool> Export(IRandomAccessStream saveTo, Guid encoderId)
         {
-            var bitmap = new RenderTargetBitmap();
-            await bitmap.RenderAsync(_canvas);
-            var pixels = (await bitmap.GetPixelsAsync()).ToArray();
+            var canvas = CanvasRenderTargetExtension.CreateEmpty(_canvas, _canvas.Size);
+            using (var ds = canvas.CreateDrawingSession())
+            {
+                DrawFrame(ds);
+            }
+            var pixels = canvas.GetPixelBytes();
             var encoder = await BitmapEncoder.CreateAsync(encoderId, saveTo);
             encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied,
-                (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, _canvas.Dpi, _canvas.Dpi, pixels);
+                (uint)canvas.Size.Width, (uint)canvas.Size.Height, _canvas.Dpi, _canvas.Dpi, pixels);
             await encoder.FlushAsync();
+            canvas.Dispose();
             return true;
         }
     }
