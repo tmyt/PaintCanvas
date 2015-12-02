@@ -219,6 +219,7 @@ namespace Painting.Ink.Controls
             _canvas.CapturePointer(e.Pointer);
             // save undo buffer
             var activeLayer = ActiveLayer;
+            if (activeLayer == null) return;
             var undo = activeLayer.Image.Clone();
             using (var ds = undo.CreateDrawingSession())
             {
