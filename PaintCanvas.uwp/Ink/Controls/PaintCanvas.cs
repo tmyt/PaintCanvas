@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Numerics;
 using System.Threading.Tasks;
 using Windows.Foundation;
@@ -17,6 +16,7 @@ using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using Windows.Devices.Input;
+using Windows.Graphics.Display;
 using Microsoft.Graphics.Canvas.Effects;
 
 namespace Painting.Ink.Controls
@@ -80,7 +80,7 @@ namespace Painting.Ink.Controls
         }
 
         public static readonly DependencyProperty CanvasWidthProperty = DependencyProperty.Register(
-            "CanvasWidth", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double)));
+            "CanvasWidth", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double), CanvasSizeChanged));
 
         public double CanvasWidth
         {
@@ -89,7 +89,7 @@ namespace Painting.Ink.Controls
         }
 
         public static readonly DependencyProperty CanvasHeightProperty = DependencyProperty.Register(
-            "CanvasHeight", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double)));
+            "CanvasHeight", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double), CanvasSizeChanged));
 
         public double CanvasHeight
         {
@@ -104,6 +104,11 @@ namespace Painting.Ink.Controls
         {
             get { return (bool)GetValue(CanScrollableProperty); }
             set { SetValue(CanScrollableProperty, value); }
+        }
+
+        private static void CanvasSizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((PaintCanvas)d).CanvasSizeChanged((PaintCanvas)d, (SizeChangedEventArgs)null);
         }
 
         private static void CanScrollableChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -139,7 +144,7 @@ namespace Painting.Ink.Controls
             _canvas.ManipulationMode = CanScrollable ? ManipulationModes.System : ManipulationModes.None;
             _canvas.CreateResources += CanvasCreateResources;
             _canvas.SizeChanged += CanvasSizeChanged;
-            _canvas.RegionsInvalidated += _canvas_RegionsInvalidated;// ReadyToDraw Draw += CanvasDraw;
+            _canvas.RegionsInvalidated += _canvas_RegionsInvalidated;
             _canvas.PointerPressed += CanvasPointerPressed;
             _canvas.PointerMoved += CanvasPointerMoved;
             _canvas.PointerReleased += CanvasPointerReleased;
@@ -151,11 +156,6 @@ namespace Painting.Ink.Controls
                 CanScrollable ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
             _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
                 CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
-        }
-
-        private void _scrollViewer_PointerMoved(object sender, PointerRoutedEventArgs e)
-        {
-            Debug.WriteLine("hoge");
         }
 
         private void _canvas_RegionsInvalidated(CanvasVirtualControl sender, CanvasRegionsInvalidatedEventArgs args)
@@ -184,7 +184,7 @@ namespace Painting.Ink.Controls
         {
             foreach (var layer in _layers)
             {
-                var image = CanvasRenderTargetExtension.CreateEmpty(_canvas, _canvas.RenderSize);
+                var image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight));
                 using (var ds = image.CreateDrawingSession())
                 {
                     ds.DrawImage(layer.Image);
@@ -193,11 +193,6 @@ namespace Painting.Ink.Controls
                 layer.Image = image;
                 old.Dispose();
             }
-        }
-
-        private void CanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
-        {
-            DrawFrame(args.DrawingSession);
         }
 
         private void DrawFrame(CanvasDrawingSession ds)
@@ -263,7 +258,8 @@ namespace Painting.Ink.Controls
                     var p = (pressure + step * i);
                     var width = (float)StrokeThickness * p;
                     var opacity = p < 0.5 ? p * 2 : 1.0f;
-                    activeLayer.DrawLine(prevPt.ToVector2(), segments[i].ToVector2(), StrokeColor, (float)width, StrokeStyle, (float)opacity);
+                    activeLayer.DrawLine(prevPt.ToVector2(), segments[i].ToVector2(), StrokeColor, (float)width,
+                        StrokeStyle, (float)opacity);
                     prevPt = segments[i];
                 }
             }
@@ -294,7 +290,7 @@ namespace Painting.Ink.Controls
         {
             var layer = new InkLayer
             {
-                Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, _canvas.RenderSize),
+                Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight)),
                 Name = name
             };
             using (var ds = layer.Image.CreateDrawingSession())
@@ -398,7 +394,7 @@ namespace Painting.Ink.Controls
         {
             var layer = new InkLayer
             {
-                Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, _canvas.RenderSize),
+                Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight)),
                 Name = "Imported"
             };
             using (var bitmap = await CanvasBitmap.LoadAsync(_canvas, stream))
@@ -433,7 +429,8 @@ namespace Painting.Ink.Controls
         {
             using (var ds = target.CreateDrawingSession())
             {
-                ds.DrawLine(from, to, new Color() { A = (byte)(255 * opacity), B = color.B, G = color.G, R = color.R }, strokeWidth, strokeStyle);
+                ds.DrawLine(from, to, new Color() { A = (byte)(255 * opacity), B = color.B, G = color.G, R = color.R },
+                    strokeWidth, strokeStyle);
             }
         }
 
@@ -548,7 +545,13 @@ namespace Painting.Ink.Controls
                 case PointerDeviceType.Pen:
                     return pt.Properties.Pressure;
                 case PointerDeviceType.Touch:
-                    return Math.Min(1.0f, pt.Properties.ContactRect.Width * pt.Properties.ContactRect.Height / 32768.0f);
+                    {
+                        var di = DisplayInformation.GetForCurrentView();
+                        var scale = di.LogicalDpi / 96.0;
+                        var w = pt.Properties.ContactRect.Width / (di.RawDpiX / 25.4) * scale;
+                        var h = pt.Properties.ContactRect.Height / (di.RawDpiY / 25.4) * scale;
+                        return Math.Min(1.0f, w * h / 300.0f);
+                    }
             }
             return 0.5;
         }
