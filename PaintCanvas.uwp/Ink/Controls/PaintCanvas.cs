@@ -42,6 +42,7 @@ namespace Painting.Ink.Controls
         public ReadOnlyObservableCollection<InkLayer> Layers
             => new ReadOnlyObservableCollection<InkLayer>(_layers);
 
+        public event EventHandler Win2dInitialized;
 
         public static readonly DependencyProperty StrokeColorProperty = DependencyProperty.Register(
             "StrokeColor", typeof(Color), typeof(PaintCanvas), new PropertyMetadata(default(Color)));
@@ -178,6 +179,7 @@ namespace Painting.Ink.Controls
             AddLayer();
             _background = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:///PaintCanvas/Assets/canvas.png"));
             _canvas.Invalidate();
+            Win2dInitialized?.Invoke(this, EventArgs.Empty);
         }
 
         private void CanvasSizeChanged(object sender, SizeChangedEventArgs sizeChangedEventArgs)
@@ -391,7 +393,7 @@ namespace Painting.Ink.Controls
             return true;
         }
 
-        public async Task<bool> ImportPicture(IRandomAccessStreamWithContentType stream)
+        public async Task<bool> ImportPicture(IRandomAccessStream stream)
         {
             var layer = new InkLayer
             {
@@ -405,6 +407,7 @@ namespace Painting.Ink.Controls
                 ds.DrawImage(bitmap);
             }
             _layers.Insert(0, layer);
+            _canvas.Invalidate();
             return true;
         }
     }
