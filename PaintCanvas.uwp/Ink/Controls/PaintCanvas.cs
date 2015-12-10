@@ -379,7 +379,7 @@ namespace Painting.Ink.Controls
 
         public async Task<bool> Export(IRandomAccessStream saveTo, Guid encoderId)
         {
-            var canvas = CanvasRenderTargetExtension.CreateEmpty(_canvas, _canvas.Size);
+            var canvas = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight), 96);
             using (var ds = canvas.CreateDrawingSession())
             {
                 DrawFrame(ds);
@@ -387,7 +387,7 @@ namespace Painting.Ink.Controls
             var pixels = canvas.GetPixelBytes();
             var encoder = await BitmapEncoder.CreateAsync(encoderId, saveTo);
             encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied,
-                (uint)canvas.Size.Width, (uint)canvas.Size.Height, _canvas.Dpi, _canvas.Dpi, pixels);
+                (uint)CanvasWidth, (uint)CanvasHeight, 96, 96, pixels);
             await encoder.FlushAsync();
             canvas.Dispose();
             return true;
