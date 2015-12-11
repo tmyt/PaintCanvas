@@ -209,6 +209,7 @@ namespace Painting.Ink.Controls
             }
             foreach (var layer in _layers)
             {
+                if (!layer.IsVisible) continue;
                 ds.DrawImage(layer.Image);
             }
         }
@@ -221,7 +222,7 @@ namespace Painting.Ink.Controls
             _canvas.CapturePointer(e.Pointer);
             // save undo buffer
             var activeLayer = ActiveLayer;
-            if (activeLayer == null) return;
+            if (activeLayer == null || activeLayer.IsLocked) return;
             var undo = activeLayer.Image.Clone();
             using (var ds = undo.CreateDrawingSession())
             {
@@ -238,7 +239,7 @@ namespace Painting.Ink.Controls
         private void CanvasPointerMoved(object sender, PointerRoutedEventArgs e)
         {
             var activeLayer = ActiveLayer?.Image;
-            if (activeLayer == null) return;
+            if (activeLayer == null || (ActiveLayer?.IsLocked ?? false)) return;
             if (!_inputs.ContainsKey(e.Pointer.PointerId)) return;
             if (!e.Pointer.IsInContact) return;
             var pt = e.GetCurrentPoint(_canvas);
@@ -284,6 +285,14 @@ namespace Painting.Ink.Controls
             return PenMode == PenMode.Eraser | prop.IsEraser | prop.IsRightButtonPressed;
         }
 
+        private void Layer_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "IsVisible")
+            {
+                _canvas.Invalidate();
+            }
+        }
+
         public InkLayer AddLayer()
         {
             return AddLayer("Layer #" + (_layers.Count + 1));
@@ -294,8 +303,10 @@ namespace Painting.Ink.Controls
             var layer = new InkLayer
             {
                 Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight)),
-                Name = name
+                Name = name,
+                IsVisible = true
             };
+            layer.PropertyChanged += Layer_PropertyChanged;
             using (var ds = layer.Image.CreateDrawingSession())
             {
                 ds.Clear();
@@ -398,8 +409,10 @@ namespace Painting.Ink.Controls
             var layer = new InkLayer
             {
                 Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight)),
-                Name = "Imported"
+                Name = "Imported",
+                IsVisible = true
             };
+            layer.PropertyChanged += Layer_PropertyChanged;
             using (var bitmap = await CanvasBitmap.LoadAsync(_canvas, stream))
             using (var ds = layer.Image.CreateDrawingSession())
             {
