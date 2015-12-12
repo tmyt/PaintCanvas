@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -138,6 +139,8 @@ namespace Painting.Ink.Controls
             _redoBuffer = new Stack<KeyValuePair<InkLayer, CanvasRenderTarget>>();
             _inputs = new Dictionary<uint, Point>();
             _previousPressures = new Dictionary<uint, double>();
+            // handle reorder
+            _layers.CollectionChanged += LyaersCollectionChanged;
             // handle unload
             Unloaded += ThisUnloaded;
         }
@@ -168,6 +171,11 @@ namespace Painting.Ink.Controls
             {
                 DrawFrame(ds);
             }
+        }
+
+        private void LyaersCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            _canvas?.Invalidate();
         }
 
         private void ThisUnloaded(object sender, RoutedEventArgs e)
