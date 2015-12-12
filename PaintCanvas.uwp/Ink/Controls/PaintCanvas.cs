@@ -42,8 +42,8 @@ namespace Painting.Ink.Controls
         private CanvasRenderTarget _buffer;
         private CanvasRenderTarget _tmpBuffer;
 
-        public ReadOnlyObservableCollection<InkLayer> Layers
-            => new ReadOnlyObservableCollection<InkLayer>(_layers);
+        public ObservableCollection<InkLayer> Layers
+            => _layers;
 
         public event EventHandler Win2dInitialized;
 
