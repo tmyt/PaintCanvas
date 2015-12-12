@@ -173,6 +173,28 @@ namespace Painting.Ink.Controls
         {
             _canvas?.RemoveFromVisualTree();
             _canvas = null;
+            // dispose buffers
+            _buffer.Dispose();
+            _tmpBuffer.Dispose();
+            _background.Dispose();
+            foreach (var buffer in _undoBuffer)
+            {
+                buffer.Value.Dispose();
+            }
+            foreach (var buffer in _redoBuffer)
+            {
+                buffer.Value.Dispose();
+            }
+            foreach (var layer in _layers)
+            {
+                layer.Image.Dispose();
+            }
+            _undoBuffer.Clear();
+            _redoBuffer.Clear();
+            _layers.Clear();
+            _buffer = null;
+            _tmpBuffer = null;
+            _background = null;
         }
 
         private async void CanvasCreateResources(CanvasVirtualControl sender, CanvasCreateResourcesEventArgs args)
@@ -189,7 +211,7 @@ namespace Painting.Ink.Controls
 
         private void CanvasSizeChanged(object sender, SizeChangedEventArgs sizeChangedEventArgs)
         {
-            
+
             foreach (var layer in _layers)
             {
                 var image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight));
