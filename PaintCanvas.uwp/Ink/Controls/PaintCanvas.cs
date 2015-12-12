@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
 using Windows.Foundation;
@@ -224,6 +225,10 @@ namespace Painting.Ink.Controls
                 old.Dispose();
             }
             if (_buffer == null) return;
+            _buffer.Dispose();
+            _tmpBuffer.Dispose();
+            _buffer = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight));
+            _tmpBuffer = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight));
         }
 
         private void DrawFrame(CanvasDrawingSession ds)
@@ -240,9 +245,8 @@ namespace Painting.Ink.Controls
             {
                 blendDs.Clear();
             }
-            foreach (var layer in _layers)
+            foreach (var layer in _layers.Where(l => l.IsVisible))
             {
-                if (!layer.IsVisible) continue;
                 using (var tmpDs = _tmpBuffer.CreateDrawingSession())
                 {
                     tmpDs.Clear(Colors.Transparent);
@@ -250,28 +254,33 @@ namespace Painting.Ink.Controls
                     {
                         case BlendMode.Normal:
                             tmpDs.DrawImage(_buffer);
-                            tmpDs.DrawImage(layer.Image);
+                            tmpDs.DrawImage(layer.Image, (float)layer.Opacity / 100);
                             break;
                         case BlendMode.Addition:
                             tmpDs.DrawImage(_buffer);
                             tmpDs.Blend = CanvasBlend.Add;
-                            tmpDs.DrawImage(layer.Image);
+                            tmpDs.DrawImage(layer.Image, (float)layer.Opacity / 100);
                             break;
                         default:
+                            using (var alpha = layer.Image.Clone())
                             using (var blend = new BlendEffect())
                             {
+                                using (var alphaDs = alpha.CreateDrawingSession())
+                                {
+                                    alphaDs.DrawImage(layer.Image, (float)layer.Opacity / 100);
+                                }
                                 blend.Background = _buffer;
-                                blend.Foreground = layer.Image;
+                                blend.Foreground = alpha;
                                 blend.Mode = layer.BlendMode.ToBlendEffectMode();
                                 tmpDs.DrawImage(blend);
                             }
                             break;
                     }
-                    using (var blendDs = _buffer.CreateDrawingSession())
-                    {
-                        blendDs.Clear();
-                        blendDs.DrawImage(_tmpBuffer);
-                    }
+                }
+                using (var blendDs = _buffer.CreateDrawingSession())
+                {
+                    blendDs.Clear();
+                    blendDs.DrawImage(_tmpBuffer);
                 }
                 ds.DrawImage(_buffer);
             }
@@ -350,10 +359,7 @@ namespace Painting.Ink.Controls
 
         private void Layer_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == "IsVisible")
-            {
-                _canvas.Invalidate();
-            }
+            _canvas.Invalidate();
         }
 
         public InkLayer AddLayer()
@@ -367,7 +373,8 @@ namespace Painting.Ink.Controls
             {
                 Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight)),
                 Name = name,
-                IsVisible = true
+                IsVisible = true,
+                Opacity = 100
             };
             layer.PropertyChanged += Layer_PropertyChanged;
             using (var ds = layer.Image.CreateDrawingSession())
@@ -474,7 +481,8 @@ namespace Painting.Ink.Controls
             {
                 Image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight)),
                 Name = "Imported",
-                IsVisible = true
+                IsVisible = true,
+                Opacity = 100
             };
             layer.PropertyChanged += Layer_PropertyChanged;
             using (var bitmap = await CanvasBitmap.LoadAsync(_canvas, stream))
@@ -494,6 +502,12 @@ namespace Painting.Ink.Controls
         public static void Clear(this CanvasDrawingSession session)
         {
             session.Clear(Colors.Transparent);
+        }
+
+        public static void DrawImage(this CanvasDrawingSession session, ICanvasImage image, float opacity)
+        {
+            var rect = image.GetBounds(session);
+            session.DrawImage(image, rect, rect, opacity);
         }
     }
 
