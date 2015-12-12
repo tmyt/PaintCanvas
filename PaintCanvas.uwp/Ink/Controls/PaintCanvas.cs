@@ -38,6 +38,8 @@ namespace Painting.Ink.Controls
         private ScrollViewer _scrollViewer;
         private CanvasVirtualControl _canvas;
         private CanvasBitmap _background;
+        private CanvasRenderTarget _buffer;
+        private CanvasRenderTarget _tmpBuffer;
 
         public ReadOnlyObservableCollection<InkLayer> Layers
             => new ReadOnlyObservableCollection<InkLayer>(_layers);
@@ -175,6 +177,9 @@ namespace Painting.Ink.Controls
 
         private async void CanvasCreateResources(CanvasVirtualControl sender, CanvasCreateResourcesEventArgs args)
         {
+            // create back buffer
+            _buffer = CanvasRenderTargetExtension.CreateEmpty(sender, new Size(CanvasWidth, CanvasHeight));
+            _tmpBuffer = CanvasRenderTargetExtension.CreateEmpty(sender, new Size(CanvasWidth, CanvasHeight));
             // create default layer
             AddLayer();
             _background = await CanvasBitmap.LoadAsync(sender, new Uri("ms-appx:///PaintCanvas/Assets/canvas.png"));
@@ -184,6 +189,7 @@ namespace Painting.Ink.Controls
 
         private void CanvasSizeChanged(object sender, SizeChangedEventArgs sizeChangedEventArgs)
         {
+            
             foreach (var layer in _layers)
             {
                 var image = CanvasRenderTargetExtension.CreateEmpty(_canvas, new Size(CanvasWidth, CanvasHeight));
@@ -195,6 +201,7 @@ namespace Painting.Ink.Controls
                 layer.Image = image;
                 old.Dispose();
             }
+            if (_buffer == null) return;
         }
 
         private void DrawFrame(CanvasDrawingSession ds)
@@ -207,42 +214,44 @@ namespace Painting.Ink.Controls
                 tile.SourceRectangle = new Rect(0, 0, 400, 400);
                 ds.DrawImage(tile);
             }
-            using (var back = new CanvasRenderTarget(_canvas, _canvas.Size))
-            using (var temp = new CanvasRenderTarget(_canvas, _canvas.Size))
-            using (var blend = new BlendEffect())
+            using (var blendDs = _buffer.CreateDrawingSession())
             {
-                blend.Background = back;
-                foreach (var layer in _layers)
+                blendDs.Clear();
+            }
+            foreach (var layer in _layers)
+            {
+                if (!layer.IsVisible) continue;
+                using (var tmpDs = _tmpBuffer.CreateDrawingSession())
                 {
-                    if (!layer.IsVisible) continue;
-                    blend.Foreground = layer.Image;
-                    using (var tmpDs = temp.CreateDrawingSession())
+                    tmpDs.Clear(Colors.Transparent);
+                    switch (layer.BlendMode)
                     {
-                        tmpDs.Clear();
-                        switch (layer.BlendMode)
-                        {
-                            case BlendMode.Normal:
-                                tmpDs.DrawImage(back);
-                                tmpDs.DrawImage(layer.Image);
-                                break;
-                            case BlendMode.Addition:
-                                tmpDs.DrawImage(back);
-                                tmpDs.Blend = CanvasBlend.Add;
-                                tmpDs.DrawImage(layer.Image);
-                                break;
-                            default:
+                        case BlendMode.Normal:
+                            tmpDs.DrawImage(_buffer);
+                            tmpDs.DrawImage(layer.Image);
+                            break;
+                        case BlendMode.Addition:
+                            tmpDs.DrawImage(_buffer);
+                            tmpDs.Blend = CanvasBlend.Add;
+                            tmpDs.DrawImage(layer.Image);
+                            break;
+                        default:
+                            using (var blend = new BlendEffect())
+                            {
+                                blend.Background = _buffer;
+                                blend.Foreground = layer.Image;
                                 blend.Mode = layer.BlendMode.ToBlendEffectMode();
                                 tmpDs.DrawImage(blend);
-                                break;
-                        }
+                            }
+                            break;
                     }
-                    using (var blendDs = back.CreateDrawingSession())
+                    using (var blendDs = _buffer.CreateDrawingSession())
                     {
                         blendDs.Clear();
-                        blendDs.DrawImage(temp);
+                        blendDs.DrawImage(_tmpBuffer);
                     }
                 }
-                ds.DrawImage(back);
+                ds.DrawImage(_buffer);
             }
         }
 
