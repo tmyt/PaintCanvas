@@ -211,11 +211,6 @@ namespace Painting.Ink.Controls
             using (var temp = new CanvasRenderTarget(_canvas, _canvas.Size))
             using (var blend = new BlendEffect())
             {
-                using (var blendDs = back.CreateDrawingSession())
-                {
-                    blendDs.Clear();
-                    blendDs.DrawImage(_layers[0].Image);
-                }
                 blend.Background = back;
                 foreach (var layer in _layers)
                 {
@@ -227,9 +222,11 @@ namespace Painting.Ink.Controls
                         switch (layer.BlendMode)
                         {
                             case BlendMode.Normal:
+                                tmpDs.DrawImage(back);
                                 tmpDs.DrawImage(layer.Image);
                                 break;
                             case BlendMode.Addition:
+                                tmpDs.DrawImage(back);
                                 tmpDs.Blend = CanvasBlend.Add;
                                 tmpDs.DrawImage(layer.Image);
                                 break;
