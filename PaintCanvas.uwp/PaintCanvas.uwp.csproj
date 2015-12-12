@@ -107,6 +107,7 @@
     <None Include="project.json" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Ink\BlendMode.cs" />
     <Compile Include="Ink\Controls\PaintCanvas.cs" />
     <Compile Include="Ink\InkLayer.cs" />
     <Compile Include="Ink\PenMode.cs" />

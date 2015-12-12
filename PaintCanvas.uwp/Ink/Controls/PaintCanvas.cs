@@ -207,10 +207,45 @@ namespace Painting.Ink.Controls
                 tile.SourceRectangle = new Rect(0, 0, 400, 400);
                 ds.DrawImage(tile);
             }
-            foreach (var layer in _layers)
+            using (var back = new CanvasRenderTarget(_canvas, _canvas.Size))
+            using (var temp = new CanvasRenderTarget(_canvas, _canvas.Size))
+            using (var blend = new BlendEffect())
             {
-                if (!layer.IsVisible) continue;
-                ds.DrawImage(layer.Image);
+                using (var blendDs = back.CreateDrawingSession())
+                {
+                    blendDs.Clear();
+                    blendDs.DrawImage(_layers[0].Image);
+                }
+                blend.Background = back;
+                foreach (var layer in _layers)
+                {
+                    if (!layer.IsVisible) continue;
+                    blend.Foreground = layer.Image;
+                    using (var tmpDs = temp.CreateDrawingSession())
+                    {
+                        tmpDs.Clear();
+                        switch (layer.BlendMode)
+                        {
+                            case BlendMode.Normal:
+                                tmpDs.DrawImage(layer.Image);
+                                break;
+                            case BlendMode.Addition:
+                                tmpDs.Blend = CanvasBlend.Add;
+                                tmpDs.DrawImage(layer.Image);
+                                break;
+                            default:
+                                blend.Mode = layer.BlendMode.ToBlendEffectMode();
+                                tmpDs.DrawImage(blend);
+                                break;
+                        }
+                    }
+                    using (var blendDs = back.CreateDrawingSession())
+                    {
+                        blendDs.Clear();
+                        blendDs.DrawImage(temp);
+                    }
+                }
+                ds.DrawImage(back);
             }
         }
 
@@ -318,6 +353,7 @@ namespace Painting.Ink.Controls
 
         public void RemoveLayer(InkLayer layer)
         {
+            if (layer == null) return;
             var n = _layers.IndexOf(layer);
             _layers.Remove(layer);
             layer.Image.Dispose();

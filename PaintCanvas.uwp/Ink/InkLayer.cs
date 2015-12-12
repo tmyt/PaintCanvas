@@ -9,6 +9,7 @@ namespace Painting.Ink
         private string _name;
         private bool _isVisible;
         private bool _isLocked;
+        private BlendMode _blendMode;
 
         public CanvasRenderTarget Image { get; internal set; }
 
@@ -28,6 +29,12 @@ namespace Painting.Ink
         {
             get { return _isLocked; }
             set { _isLocked = value; OnPropertyChanged(); }
+        }
+
+        public BlendMode BlendMode
+        {
+            get {  return _blendMode;}
+            set { _blendMode = value; OnPropertyChanged(); }
         }
 
         private void OnPropertyChanged([CallerMemberName]string name = null)

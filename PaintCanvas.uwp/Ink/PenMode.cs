@@ -1,6 +1,6 @@
 ﻿namespace Painting.Ink
 {
-    public  enum PenMode
+    public enum PenMode
     {
         Pen,
         Eraser

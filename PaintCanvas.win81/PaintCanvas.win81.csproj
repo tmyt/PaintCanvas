@@ -103,6 +103,9 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\PaintCanvas.uwp\Ink\BlendMode.cs">
+      <Link>Ink\BlendMode.cs</Link>
+    </Compile>
     <Compile Include="..\PaintCanvas.uwp\Ink\Controls\PaintCanvas.cs">
       <Link>Ink\Controls\PaintCanvas.cs</Link>
     </Compile>
