@@ -417,7 +417,7 @@ namespace Painting.Ink.Controls
             var n = _layers.IndexOf(layer);
             _layers.Remove(layer);
             layer.Image.Dispose();
-            ActiveLayer = n < _layers.Count && n >= 0 ? _layers[n] : null;
+            ActiveLayer = n < _layers.Count && n >= 0 ? _layers[n] : _layers.LastOrDefault();
             _canvas.Invalidate();
         }
 
