@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
+using Windows.Devices.Enumeration;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -303,6 +304,13 @@ namespace Painting.Ink.Controls
             // save undo buffer
             var activeLayer = ActiveLayer;
             if (activeLayer == null || activeLayer.IsLocked) return;
+            // process spoit on pressed.
+            if (!IsPenModeEraser(pt.Properties) && PenMode == PenMode.Spoit)
+            {
+                if (IsInRange(pt.Position)) StrokeColor = activeLayer.Image.GetPixelColor((int)pt.Position.X, (int)pt.Position.Y).RemoveAlpha();
+                // spoit does not create undo buffer
+                return;
+            }
             var undo = activeLayer.Image.Clone();
             using (var ds = undo.CreateDrawingSession())
             {
@@ -329,6 +337,10 @@ namespace Painting.Ink.Controls
             {
                 activeLayer.EraseLine(from, to, (float)StrokeThickness, StrokeStyle);
             }
+            else if (PenMode == PenMode.Spoit)
+            {
+                if(IsInRange(pt.Position)) StrokeColor = activeLayer.GetPixelColor((int)pt.Position.X, (int)pt.Position.Y).RemoveAlpha();
+            }
             else
             {
                 var L = _inputs[pt.PointerId].Distance(pt.Position);
@@ -350,6 +362,11 @@ namespace Painting.Ink.Controls
             _inputs[pt.PointerId] = pt.Position;
             _previousPressures[pt.PointerId] = pt.ComputePressure();
             _canvas.Invalidate();
+        }
+
+        private bool IsInRange(Point pt)
+        {
+            return pt.X >= 0 && pt.Y >= 0 && pt.X < CanvasWidth && pt.Y < CanvasHeight;
         }
 
         private void CanvasPointerReleased(object sender, PointerRoutedEventArgs e)
@@ -569,6 +586,12 @@ namespace Painting.Ink.Controls
             return CreateEmpty(target.Device, target.Size, target.Dpi);
         }
 
+        public static Color GetPixelColor(this CanvasRenderTarget target, int left, int top)
+        {
+            var scale = 96.0/target.Dpi;
+            return target.GetPixelColors((int)(left/scale), (int)(top/scale), 1, 1)[0];
+        }
+
         public static CanvasRenderTarget CreateEmpty(ICanvasResourceCreatorWithDpi device, Size size)
         {
             return CreateEmpty(device, size, device.Dpi);
@@ -635,6 +658,14 @@ namespace Painting.Ink.Controls
                 points.Add(new Point(x, y));
             }
             return points.ToArray();
+        }
+    }
+
+    internal static class ColorExtension
+    {
+        public static Color RemoveAlpha(this Color c)
+        {
+            return Color.FromArgb(255, c.R, c.G, c.B);
         }
     }
 

@@ -3,6 +3,7 @@
     public enum PenMode
     {
         Pen,
-        Eraser
+        Eraser,
+        Spoit
     }
 }
