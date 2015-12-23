@@ -254,7 +254,7 @@ namespace Painting.Ink.Controls
             {
                 blendDs.Clear();
             }
-            foreach (var layer in _layers.Where(l => l.IsVisible))
+            foreach (var layer in _layers.Reverse().Where(l => l.IsVisible))
             {
                 using (var tmpDs = _tmpBuffer.CreateDrawingSession())
                 {
@@ -406,7 +406,7 @@ namespace Painting.Ink.Controls
             {
                 ds.Clear();
             }
-            _layers.Add(layer);
+            _layers.Insert(0, layer);
             ActiveLayer = layer;
             return layer;
         }
@@ -516,7 +516,7 @@ namespace Painting.Ink.Controls
                 ds.Clear();
                 ds.DrawImage(bitmap);
             }
-            _layers.Insert(0, layer);
+            _layers.Add(layer);
             _canvas.Invalidate();
             return true;
         }
