@@ -12,7 +12,7 @@
                 <ControlTemplate TargetType="controls:PaintCanvas">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
                                   x:Name="PART_ScrollViewer">
-                        <canvas:CanvasVirtualControl x:Name="PART_canvas" Width="{TemplateBinding CanvasWidth}" Height="{TemplateBinding CanvasHeight}"/>
+                        <canvas:CanvasSwapChainPanel x:Name="PART_canvas" Width="{TemplateBinding CanvasWidth}" Height="{TemplateBinding CanvasHeight}"/>
                     </ScrollViewer>
                 </ControlTemplate>
             </Setter.Value>
