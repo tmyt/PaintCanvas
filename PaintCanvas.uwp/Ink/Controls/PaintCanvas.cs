@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
@@ -38,6 +39,8 @@ namespace Painting.Ink.Controls
         private readonly Dictionary<uint, Point> _inputs;
         private readonly Dictionary<uint, double> _previousPressures;
 
+        private GestureRecognizer _recognizer;
+
         private ScrollViewer _scrollViewer;
         private CanvasSwapChainPanel _canvas;
         private CanvasBitmap _background;
@@ -53,6 +56,7 @@ namespace Painting.Ink.Controls
         private double __logicalDpi;
         private double __dpiX;
         private double __dpiY;
+        private bool __canscrollable;
 
         #endregion
 
@@ -62,7 +66,7 @@ namespace Painting.Ink.Controls
         public event EventHandler Win2dInitialized;
 
         public static readonly DependencyProperty StrokeColorProperty = DependencyProperty.Register(
-            "StrokeColor", typeof(Color), typeof(PaintCanvas), new PropertyMetadata(default(Color), (d, e) => ((PaintCanvas)d).__strokeColor=(Color) e.NewValue));
+            "StrokeColor", typeof(Color), typeof(PaintCanvas), new PropertyMetadata(default(Color), (d, e) => ((PaintCanvas)d).__strokeColor = (Color)e.NewValue));
 
         public Color StrokeColor
         {
@@ -71,7 +75,7 @@ namespace Painting.Ink.Controls
         }
 
         public static readonly DependencyProperty StrokeThicknessProperty = DependencyProperty.Register(
-            "StrokeThickness", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double), (d, e) => ((PaintCanvas)d).__strokeThickness = (double) e.NewValue));
+            "StrokeThickness", typeof(double), typeof(PaintCanvas), new PropertyMetadata(default(double), (d, e) => ((PaintCanvas)d).__strokeThickness = (double)e.NewValue));
 
         public double StrokeThickness
         {
@@ -80,7 +84,7 @@ namespace Painting.Ink.Controls
         }
 
         public static readonly DependencyProperty PenModeProperty = DependencyProperty.Register(
-            "PenMode", typeof(PenMode), typeof(PaintCanvas), new PropertyMetadata(default(PenMode), (d, e) => ((PaintCanvas)d).__penMode = (PenMode) e.NewValue));
+            "PenMode", typeof(PenMode), typeof(PaintCanvas), new PropertyMetadata(default(PenMode), (d, e) => ((PaintCanvas)d).__penMode = (PenMode)e.NewValue));
 
         public PenMode PenMode
         {
@@ -89,7 +93,7 @@ namespace Painting.Ink.Controls
         }
 
         public static readonly DependencyProperty ActiveLayerProperty = DependencyProperty.Register(
-            "ActiveLayer", typeof(InkLayer), typeof(PaintCanvas), new PropertyMetadata(default(InkLayer), (d, e) => ((PaintCanvas)d).__activeLayer = (InkLayer) e.NewValue));
+            "ActiveLayer", typeof(InkLayer), typeof(PaintCanvas), new PropertyMetadata(default(InkLayer), (d, e) => ((PaintCanvas)d).__activeLayer = (InkLayer)e.NewValue));
 
         public InkLayer ActiveLayer
         {
@@ -142,6 +146,7 @@ namespace Painting.Ink.Controls
             _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
                 CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
             _canvas.ManipulationMode = CanScrollable ? ManipulationModes.System : ManipulationModes.None;
+            __canscrollable = (bool)e.NewValue;
         }
 
         public PaintCanvas()
@@ -177,6 +182,16 @@ namespace Painting.Ink.Controls
                 CanScrollable ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
             _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
                 CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
+        }
+
+        private void _recognizer_ManipulationUpdated(GestureRecognizer sender, ManipulationUpdatedEventArgs args)
+        {
+            var delta = args.Delta;
+            _scrollViewer.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y);
+                _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X);
+            });
         }
 
         //private void _canvas_RegionsInvalidated(CanvasVirtualControl sender, CanvasRegionsInvalidatedEventArgs args)
@@ -248,8 +263,16 @@ namespace Painting.Ink.Controls
                 coreInput.PointerMoved += CanvasPointerMoved;
                 coreInput.PointerReleased += CanvasPointerReleased;
                 coreInput.PointerCaptureLost += CanvasPointerReleased;
+                // setup gesture recognizer
+                _recognizer = new GestureRecognizer { AutoProcessInertia = true};
+                _recognizer.GestureSettings =
+                    GestureSettings.ManipulationTranslateInertia | GestureSettings.ManipulationTranslateRailsX |
+                    GestureSettings.ManipulationTranslateRailsY | GestureSettings.ManipulationTranslateX |
+                    GestureSettings.ManipulationTranslateY |
+                    GestureSettings.ManipulationScale | GestureSettings.ManipulationScaleInertia;
+                _recognizer.ManipulationUpdated += _recognizer_ManipulationUpdated;
                 coreInput.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
-            }, WorkItemPriority.High);
+            }, WorkItemPriority.High, WorkItemOptions.TimeSliced).AsTask().ConfigureAwait(false);// CancellationToken.None, TaskCreationOptions.LongRunning);
         }
 
         private void DisplayInformation_DisplayContentsInvalidated(DisplayInformation sender, object args)
@@ -294,12 +317,12 @@ namespace Painting.Ink.Controls
             {
                 DrawFrame(ds);
             }
-            _canvas.SwapChain.Present();
+            _canvas.SwapChain.Present(0);
         }
 
         private void DrawFrame(CanvasDrawingSession ds)
         {
-            ds.Clear();
+            //ds.Clear();
             if (_background != null)
             {
                 var tile = new TileEffect();
@@ -354,6 +377,11 @@ namespace Painting.Ink.Controls
 
         private void CanvasPointerPressed(object sender, PointerEventArgs e)
         {
+            if (__canscrollable && e.CurrentPoint.PointerDevice.PointerDeviceType == PointerDeviceType.Touch)
+            {
+                _recognizer.ProcessDownEvent(e.CurrentPoint);
+                return;
+            }
             var pt = e.CurrentPoint;
             _inputs[pt.PointerId] = pt.Position;
             _previousPressures[pt.PointerId] = pt.ComputePressure(__logicalDpi, __dpiX, __dpiY);
@@ -387,6 +415,11 @@ namespace Painting.Ink.Controls
 
         private void CanvasPointerMoved(object sender, PointerEventArgs e)
         {
+            if (__canscrollable && e.CurrentPoint.PointerDevice.PointerDeviceType == PointerDeviceType.Touch)
+            {
+                _recognizer.ProcessMoveEvents(new[] { e.CurrentPoint });
+                return;
+            }
             var activeLayer = __activeLayer?.Image;
             if (activeLayer == null || (__activeLayer?.IsLocked ?? false)) return;
             if (!_inputs.ContainsKey(e.CurrentPoint.PointerId)) return;
@@ -432,6 +465,11 @@ namespace Painting.Ink.Controls
 
         private void CanvasPointerReleased(object sender, PointerEventArgs e)
         {
+            if (__canscrollable && e.CurrentPoint.PointerDevice.PointerDeviceType == PointerDeviceType.Touch)
+            {
+                _recognizer.ProcessUpEvent(e.CurrentPoint);
+                return;
+            }
             if (!_inputs.ContainsKey(e.CurrentPoint.PointerId)) return;
             _inputs.Remove(e.CurrentPoint.PointerId);
             _previousPressures.Remove(e.CurrentPoint.PointerId);
