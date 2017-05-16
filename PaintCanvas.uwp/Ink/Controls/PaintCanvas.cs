@@ -128,6 +128,9 @@ namespace Painting.Ink.Controls
             set { SetValue(CanScrollableProperty, value); }
         }
 
+        public bool CanUndo => _undoBuffer.Count > 0;
+        public bool CanRedo => _redoBuffer.Count > 0;
+
         private static void CanvasSizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             ((PaintCanvas)d).CanvasSizeChanged((PaintCanvas)d, (SizeChangedEventArgs)null);
