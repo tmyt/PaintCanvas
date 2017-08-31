@@ -333,6 +333,10 @@ namespace Painting.Ink.Controls
             if (!_inputs.ContainsKey(e.Pointer.PointerId)) return;
             if (!e.Pointer.IsInContact) return;
             var pt = e.GetCurrentPoint(_canvas);
+            if (pt.PointerDevice.PointerDeviceType == PointerDeviceType.Mouse && !pt.Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
             var from = _inputs[pt.PointerId].ToVector2();
             var to = pt.Position.ToVector2();
             if (IsPenModeEraser(pt.Properties))
