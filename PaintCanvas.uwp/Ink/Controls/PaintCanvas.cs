@@ -112,6 +112,8 @@ namespace Painting.Ink.Controls
             set { SetValue(CanScrollableProperty, value); }
         }
 
+        public bool CanUndo { get { return _undoBuffer.Count > 0; } }
+
         private static void CanvasSizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             ((PaintCanvas)d).CanvasSizeChanged((PaintCanvas)d, (SizeChangedEventArgs)null);
@@ -339,7 +341,7 @@ namespace Painting.Ink.Controls
             }
             else if (PenMode == PenMode.Spoit)
             {
-                if(IsInRange(pt.Position)) StrokeColor = activeLayer.GetPixelColor((int)pt.Position.X, (int)pt.Position.Y).RemoveAlpha();
+                if (IsInRange(pt.Position)) StrokeColor = activeLayer.GetPixelColor((int)pt.Position.X, (int)pt.Position.Y).RemoveAlpha();
             }
             else
             {
@@ -588,8 +590,8 @@ namespace Painting.Ink.Controls
 
         public static Color GetPixelColor(this CanvasRenderTarget target, int left, int top)
         {
-            var scale = 96.0/target.Dpi;
-            return target.GetPixelColors((int)(left/scale), (int)(top/scale), 1, 1)[0];
+            var scale = 96.0 / target.Dpi;
+            return target.GetPixelColors((int)(left / scale), (int)(top / scale), 1, 1)[0];
         }
 
         public static CanvasRenderTarget CreateEmpty(ICanvasResourceCreatorWithDpi device, Size size)
