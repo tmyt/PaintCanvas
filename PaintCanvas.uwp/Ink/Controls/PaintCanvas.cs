@@ -21,7 +21,9 @@ using Windows.Devices.Input;
 using Windows.Graphics.Display;
 using Windows.System.Threading;
 using Windows.UI.Core;
+using Windows.UI.Xaml.Controls.Primitives;
 using Microsoft.Graphics.Canvas.Effects;
+using Painting.Internal;
 
 namespace Painting.Ink.Controls
 {
@@ -42,10 +44,18 @@ namespace Painting.Ink.Controls
         private GestureRecognizer _recognizer;
 
         private ScrollViewer _scrollViewer;
+        private ScrollBar _horizontalBar;
+        private ScrollBar _verticalBar;
         private CanvasSwapChainPanel _canvas;
         private CanvasBitmap _background;
         private CanvasRenderTarget _buffer;
         private CanvasRenderTarget _tmpBuffer;
+
+        #region Backgroud thread input processor
+
+        private CoreIndependentInputSource _inputSource;
+
+        #endregion
 
         #region Drawing Parameters
 
@@ -185,6 +195,10 @@ namespace Painting.Ink.Controls
                 CanScrollable ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
             _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
                 CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
+            _horizontalBar = _scrollViewer.GetVisualChildren<ScrollBar>()
+                .FirstOrDefault(x => x.Orientation == Orientation.Horizontal);
+            _verticalBar = _scrollViewer.GetVisualChildren<ScrollBar>()
+                .FirstOrDefault(x => x.Orientation == Orientation.Vertical);
         }
 
         private void _recognizer_ManipulationUpdated(GestureRecognizer sender, ManipulationUpdatedEventArgs args)
@@ -194,7 +208,25 @@ namespace Painting.Ink.Controls
             {
                 _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y);
                 _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X);
-            });
+            }).AsTask().ConfigureAwait(false);
+        }
+
+        private void UpdateIndicatorMode(PointerDeviceType type)
+        {
+            _scrollViewer.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                switch (type)
+                {
+                    default:
+                    case PointerDeviceType.Mouse:
+                    case PointerDeviceType.Pen:
+                        VisualStateManager.GoToState(_scrollViewer, "MouseIndicator", true);
+                        break;
+                    case PointerDeviceType.Touch:
+                        VisualStateManager.GoToState(_scrollViewer, "TouchIndicator", true);
+                        break;
+                }
+            }).AsTask().ConfigureAwait(false);
         }
 
         //private void _canvas_RegionsInvalidated(CanvasVirtualControl sender, CanvasRegionsInvalidatedEventArgs args)
@@ -260,22 +292,25 @@ namespace Painting.Ink.Controls
             // initialize background input thread
             ThreadPool.RunAsync(_ =>
             {
-                var coreInput = _canvas.CreateCoreIndependentInputSource(
-                    CoreInputDeviceTypes.Mouse | CoreInputDeviceTypes.Pen | CoreInputDeviceTypes.Touch);
-                coreInput.PointerPressed += CanvasPointerPressed;
-                coreInput.PointerMoved += CanvasPointerMoved;
-                coreInput.PointerReleased += CanvasPointerReleased;
-                coreInput.PointerCaptureLost += CanvasPointerReleased;
+                // touch processor
+                _inputSource = _canvas.CreateCoreIndependentInputSource(
+                    CoreInputDeviceTypes.Touch | CoreInputDeviceTypes.Mouse | CoreInputDeviceTypes.Pen
+                );
+                _inputSource.PointerPressed += CanvasPointerPressed;
+                _inputSource.PointerMoved += CanvasPointerMoved;
+                _inputSource.PointerReleased += CanvasPointerReleased;
+                _inputSource.PointerCaptureLost += CanvasPointerReleased;
                 // setup gesture recognizer
-                _recognizer = new GestureRecognizer { AutoProcessInertia = true};
+                _recognizer = new GestureRecognizer { AutoProcessInertia = true };
                 _recognizer.GestureSettings =
                     GestureSettings.ManipulationTranslateInertia | GestureSettings.ManipulationTranslateRailsX |
                     GestureSettings.ManipulationTranslateRailsY | GestureSettings.ManipulationTranslateX |
                     GestureSettings.ManipulationTranslateY |
                     GestureSettings.ManipulationScale | GestureSettings.ManipulationScaleInertia;
                 _recognizer.ManipulationUpdated += _recognizer_ManipulationUpdated;
-                coreInput.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
-            }, WorkItemPriority.High, WorkItemOptions.TimeSliced).AsTask().ConfigureAwait(false);// CancellationToken.None, TaskCreationOptions.LongRunning);
+                _inputSource.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
+            }, WorkItemPriority.High, WorkItemOptions.TimeSliced).AsTask().ConfigureAwait(false).GetAwaiter();
+            // CancellationToken.None, TaskCreationOptions.LongRunning);
         }
 
         private void DisplayInformation_DisplayContentsInvalidated(DisplayInformation sender, object args)
@@ -418,6 +453,9 @@ namespace Painting.Ink.Controls
 
         private void CanvasPointerMoved(object sender, PointerEventArgs e)
         {
+            // update visualsatte
+            UpdateIndicatorMode(e.CurrentPoint.PointerDevice.PointerDeviceType);
+            // transport to recognizer
             if (__canscrollable && e.CurrentPoint.PointerDevice.PointerDeviceType == PointerDeviceType.Touch)
             {
                 _recognizer.ProcessMoveEvents(new[] { e.CurrentPoint });

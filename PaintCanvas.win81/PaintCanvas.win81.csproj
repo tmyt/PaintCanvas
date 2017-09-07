@@ -115,6 +115,9 @@
     <Compile Include="..\PaintCanvas.uwp\Ink\PenMode.cs">
       <Link>Ink\PenMode.cs</Link>
     </Compile>
+    <Compile Include="..\PaintCanvas.uwp\Internal\VisualTreeHelperExtension.cs">
+      <Link>Internal\VisualTreeHelperExtension.cs</Link>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
