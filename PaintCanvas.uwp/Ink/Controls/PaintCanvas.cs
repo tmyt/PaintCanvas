@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Numerics;
-using System.Threading;
 using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
@@ -13,7 +12,6 @@ using Windows.UI;
 using Windows.UI.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Input;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI.Xaml;
@@ -291,6 +289,7 @@ namespace Painting.Ink.Controls
             Invalidate();
             Win2dInitialized?.Invoke(this, EventArgs.Empty);
             // initialize background input thread
+
             ThreadPool.RunAsync(_ =>
             {
                 // touch processor
@@ -311,7 +310,7 @@ namespace Painting.Ink.Controls
                     GestureSettings.ManipulationScale | GestureSettings.ManipulationScaleInertia;
                 _recognizer.ManipulationUpdated += _recognizer_ManipulationUpdated;
                 _inputSource.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
-            }, WorkItemPriority.High, WorkItemOptions.TimeSliced).AsTask().ConfigureAwait(false).GetAwaiter();
+            }, WorkItemPriority.High, WorkItemOptions.TimeSliced);
         }
 
         private void DisplayInformation_DisplayContentsInvalidated(DisplayInformation sender, object args)
