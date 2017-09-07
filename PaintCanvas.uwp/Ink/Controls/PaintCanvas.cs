@@ -67,6 +67,7 @@ namespace Painting.Ink.Controls
         private double __logicalDpi;
         private double __dpiX;
         private double __dpiY;
+        private double __zoomFactor;
         private bool __canscrollable;
 
         #endregion
@@ -165,6 +166,7 @@ namespace Painting.Ink.Controls
             _redoBuffer = new Stack<KeyValuePair<InkLayer, CanvasRenderTarget>>();
             _inputs = new Dictionary<uint, Point>();
             _previousPressures = new Dictionary<uint, double>();
+            __zoomFactor = 1;
             // handle reorder
             _layers.CollectionChanged += LayersCollectionChanged;
             // handle unload
@@ -188,9 +190,10 @@ namespace Painting.Ink.Controls
             var delta = args.Delta;
             _scrollViewer.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y);
-                _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X);
+                _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y * __zoomFactor);
+                _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X * __zoomFactor);
                 _scrollViewer.ZoomToFactor(_scrollViewer.ZoomFactor * delta.Scale);
+                __zoomFactor = _scrollViewer.ZoomFactor;
             }).AsTask().ConfigureAwait(false).GetAwaiter();
         }
 
@@ -207,6 +210,7 @@ namespace Painting.Ink.Controls
                 {
                     var factor = (delta / 1200.0) + 1;
                     _scrollViewer.ZoomToFactor((float)(_scrollViewer.ZoomFactor * factor));
+                    __zoomFactor = _scrollViewer.ZoomFactor;
                     return;
                 }
                 if (isHorizontal)
@@ -419,7 +423,7 @@ namespace Painting.Ink.Controls
             }
             var pt = e.CurrentPoint;
             _inputs[pt.PointerId] = pt.Position;
-            _previousPressures[pt.PointerId] = pt.ComputePressure(__logicalDpi, __dpiX, __dpiY);
+            _previousPressures[pt.PointerId] = pt.ComputePressure(__logicalDpi, __dpiX, __dpiY, __zoomFactor);
             //_canvas.CapturePointer(e.Pointer);
             // save undo buffer
             var activeLayer = __activeLayer;
@@ -481,7 +485,7 @@ namespace Painting.Ink.Controls
             {
                 var L = _inputs[pt.PointerId].Distance(pt.Position);
                 var k = L / 8; // 8px
-                var step = (pt.ComputePressure(__logicalDpi, __dpiX, __dpiY) - _previousPressures[pt.PointerId]) / 4;
+                var step = (pt.ComputePressure(__logicalDpi, __dpiX, __dpiY, __zoomFactor) - _previousPressures[pt.PointerId]) / 4;
                 var segments = PointExtension.SplitSegments(_inputs[pt.PointerId], pt.Position, Math.Max(4, (int)k));
                 var pressure = _previousPressures[pt.PointerId];
                 var prevPt = _inputs[pt.PointerId];
@@ -496,7 +500,7 @@ namespace Painting.Ink.Controls
                 }
             }
             _inputs[pt.PointerId] = pt.Position;
-            _previousPressures[pt.PointerId] = pt.ComputePressure(__logicalDpi, __dpiX, __dpiY);
+            _previousPressures[pt.PointerId] = pt.ComputePressure(__logicalDpi, __dpiX, __dpiY, __zoomFactor);
             //_canvas.Invalidate();
             Invalidate();
         }
@@ -828,7 +832,7 @@ namespace Painting.Ink.Controls
 
     internal static class PointerPointExtension
     {
-        public static double ComputePressure(this PointerPoint pt, double logicalDpi, double dpiX, double dpiY)
+        public static double ComputePressure(this PointerPoint pt, double logicalDpi, double dpiX, double dpiY, double factor)
         {
             switch (pt.PointerDevice.PointerDeviceType)
             {
@@ -838,7 +842,7 @@ namespace Painting.Ink.Controls
                 case PointerDeviceType.Touch:
                     {
                         //var di = DisplayInformation.GetForCurrentView();
-                        var scale = logicalDpi / 96.0;
+                        var scale = (logicalDpi / 96.0) * factor;
                         var w = pt.Properties.ContactRect.Width / (dpiX / 25.4) * scale;
                         var h = pt.Properties.ContactRect.Height / (dpiY / 25.4) * scale;
                         return Math.Min(1.0f, w * h / 300.0f);
