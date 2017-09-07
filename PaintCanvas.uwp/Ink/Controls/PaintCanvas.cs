@@ -19,6 +19,7 @@ using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using Windows.Devices.Input;
 using Windows.Graphics.Display;
+using Windows.System;
 using Windows.System.Threading;
 using Windows.UI.Core;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -153,12 +154,6 @@ namespace Painting.Ink.Controls
 
         private void CanScrollableChanged(DependencyPropertyChangedEventArgs e)
         {
-            if (_scrollViewer == null) return;
-            _scrollViewer.HorizontalScrollBarVisibility = _scrollViewer.VerticalScrollBarVisibility =
-                CanScrollable ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
-            _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
-                CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
-            _canvas.ManipulationMode = CanScrollable ? ManipulationModes.System : ManipulationModes.None;
             __canscrollable = (bool)e.NewValue;
         }
 
@@ -179,22 +174,9 @@ namespace Painting.Ink.Controls
         protected override void OnApplyTemplate()
         {
             _canvas = (CanvasSwapChainPanel)GetTemplateChild("PART_canvas");
-            _canvas.ManipulationMode = CanScrollable ? ManipulationModes.System : ManipulationModes.None;
-            //_canvas.CreateResources += CanvasCreateResources;
             _canvas.Loaded += CanvasCreateResources;
             _canvas.SizeChanged += CanvasSizeChanged;
-            //_canvas.RegionsInvalidated += _canvas_RegionsInvalidated;
-            //_canvas.PointerPressed += CanvasPointerPressed;
-            //_canvas.PointerMoved += CanvasPointerMoved;
-            //_canvas.PointerReleased += CanvasPointerReleased;
-            //_canvas.PointerCanceled += CanvasPointerReleased;
-            //_canvas.PointerCaptureLost += CanvasPointerReleased;
-            //
             _scrollViewer = (ScrollViewer)GetTemplateChild("PART_ScrollViewer");
-            _scrollViewer.HorizontalScrollBarVisibility = _scrollViewer.VerticalScrollBarVisibility =
-                CanScrollable ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
-            _scrollViewer.HorizontalScrollMode = _scrollViewer.VerticalScrollMode =
-                CanScrollable ? ScrollMode.Auto : ScrollMode.Disabled;
             _horizontalBar = _scrollViewer.GetVisualChildren<ScrollBar>()
                 .FirstOrDefault(x => x.Orientation == Orientation.Horizontal);
             _verticalBar = _scrollViewer.GetVisualChildren<ScrollBar>()
@@ -209,6 +191,28 @@ namespace Painting.Ink.Controls
                 _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y);
                 _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X);
                 _scrollViewer.ZoomToFactor(_scrollViewer.ZoomFactor * delta.Scale);
+            }).AsTask().ConfigureAwait(false).GetAwaiter();
+        }
+
+
+        private void CanvasWheelChanged(object sender, PointerEventArgs args)
+        {
+            var delta = args.CurrentPoint.Properties.MouseWheelDelta;
+            var isHorizontal = args.CurrentPoint.Properties.IsHorizontalMouseWheel;
+            var control = (args.KeyModifiers & VirtualKeyModifiers.Control) != 0;
+            if (control && isHorizontal) return;
+            _scrollViewer.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (control)
+                {
+                    var factor = (delta / 1200.0) + 1;
+                    _scrollViewer.ZoomToFactor((float)(_scrollViewer.ZoomFactor * factor));
+                    return;
+                }
+                if (isHorizontal)
+                    _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset + delta);
+                else
+                    _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta);
             }).AsTask().ConfigureAwait(false).GetAwaiter();
         }
 
@@ -229,14 +233,6 @@ namespace Painting.Ink.Controls
                 }
             }).AsTask().ConfigureAwait(false);
         }
-
-        //private void _canvas_RegionsInvalidated(CanvasVirtualControl sender, CanvasRegionsInvalidatedEventArgs args)
-        //{
-        //    using (var ds = sender.CreateDrawingSession(args.VisibleRegion))
-        //    {
-        //        DrawFrame(ds);
-        //    }
-        //}
 
         private void LayersCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
@@ -301,6 +297,7 @@ namespace Painting.Ink.Controls
                 _inputSource.PointerMoved += CanvasPointerMoved;
                 _inputSource.PointerReleased += CanvasPointerReleased;
                 _inputSource.PointerCaptureLost += CanvasPointerReleased;
+                _inputSource.PointerWheelChanged += CanvasWheelChanged;
                 // setup gesture recognizer
                 _recognizer = new GestureRecognizer { AutoProcessInertia = true };
                 _recognizer.GestureSettings =
@@ -311,7 +308,6 @@ namespace Painting.Ink.Controls
                 _recognizer.ManipulationUpdated += _recognizer_ManipulationUpdated;
                 _inputSource.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
             }, WorkItemPriority.High, WorkItemOptions.TimeSliced).AsTask().ConfigureAwait(false).GetAwaiter();
-            // CancellationToken.None, TaskCreationOptions.LongRunning);
         }
 
         private void DisplayInformation_DisplayContentsInvalidated(DisplayInformation sender, object args)
