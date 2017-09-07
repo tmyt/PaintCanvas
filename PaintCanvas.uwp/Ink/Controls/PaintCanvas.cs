@@ -208,7 +208,8 @@ namespace Painting.Ink.Controls
             {
                 _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y);
                 _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X);
-            }).AsTask().ConfigureAwait(false);
+                _scrollViewer.ZoomToFactor(_scrollViewer.ZoomFactor * delta.Scale);
+            }).AsTask().ConfigureAwait(false).GetAwaiter();
         }
 
         private void UpdateIndicatorMode(PointerDeviceType type)
