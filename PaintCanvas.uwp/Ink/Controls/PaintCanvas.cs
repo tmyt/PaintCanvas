@@ -199,6 +199,7 @@ namespace Painting.Ink.Controls
         private void CanvasWheelChanged(object sender, PointerEventArgs args)
         {
             var delta = args.CurrentPoint.Properties.MouseWheelDelta;
+            var pt = args.CurrentPoint.Position;
             var isHorizontal = args.CurrentPoint.Properties.IsHorizontalMouseWheel;
             var control = (args.KeyModifiers & VirtualKeyModifiers.Control) != 0;
             if (control && isHorizontal) return;
@@ -207,7 +208,11 @@ namespace Painting.Ink.Controls
                 if (control)
                 {
                     var factor = (delta / 1200.0) + 1;
-                    _scrollViewer.ZoomToFactor((float)(_scrollViewer.ZoomFactor * factor));
+                    var dw = ((pt.X * factor) - pt.X);
+                    var dh = ((pt.Y * factor) - pt.Y);
+                    _scrollViewer.ChangeView(_scrollViewer.HorizontalOffset + dw,
+                        _scrollViewer.VerticalOffset + dh,
+                        (float) (_scrollViewer.ZoomFactor * factor));
                     __zoomFactor = _scrollViewer.ZoomFactor;
                     return;
                 }
