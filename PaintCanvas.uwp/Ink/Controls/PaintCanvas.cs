@@ -211,11 +211,11 @@ namespace Painting.Ink.Controls
                 if (control)
                 {
                     var factor = (delta / 1200.0) + 1;
-                    var dw = ((pt.X * factor) - pt.X);
-                    var dh = ((pt.Y * factor) - pt.Y);
+                    var dw = ((pt.X * factor) - pt.X) * __zoomFactor;
+                    var dh = ((pt.Y * factor) - pt.Y) * __zoomFactor;
                     _scrollViewer.ChangeView(_scrollViewer.HorizontalOffset + dw,
                         _scrollViewer.VerticalOffset + dh,
-                        (float) (_scrollViewer.ZoomFactor * factor));
+                        (float)(_scrollViewer.ZoomFactor * factor));
                     __zoomFactor = _scrollViewer.ZoomFactor;
                     return;
                 }
