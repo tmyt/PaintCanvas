@@ -186,11 +186,14 @@ namespace Painting.Ink.Controls
         private void _recognizer_ManipulationUpdated(GestureRecognizer sender, ManipulationUpdatedEventArgs args)
         {
             var delta = args.Delta;
+            var pt = args.Position;
             _scrollViewer.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y * __zoomFactor);
-                _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X * __zoomFactor);
+                var dw = ((pt.X * delta.Scale) - pt.X) * __zoomFactor;
+                var dh = ((pt.Y * delta.Scale) - pt.Y) * __zoomFactor;
                 _scrollViewer.ZoomToFactor(_scrollViewer.ZoomFactor * delta.Scale);
+                _scrollViewer.ScrollToVerticalOffset(_scrollViewer.VerticalOffset - delta.Translation.Y * __zoomFactor + dh);
+                _scrollViewer.ScrollToHorizontalOffset(_scrollViewer.HorizontalOffset - delta.Translation.X * __zoomFactor + dw);
                 __zoomFactor = _scrollViewer.ZoomFactor;
             }).AsTask().ConfigureAwait(false).GetAwaiter();
         }
