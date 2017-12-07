@@ -111,6 +111,7 @@
     <Compile Include="Ink\Controls\PaintCanvas.cs" />
     <Compile Include="Ink\InkLayer.cs" />
     <Compile Include="Ink\PenMode.cs" />
+    <Compile Include="Internal\VisualTreeHelperExtension.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\PaintCanvas.rd.xml" />
   </ItemGroup>
